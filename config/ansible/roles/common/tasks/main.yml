@@ -1,0 +1,129 @@
+---
+- name: Require supported platform package artifacts
+  ansible.builtin.find:
+    paths: "{{ ansible_master_location }}"
+    patterns:
+      - elasticsearch-*.deb
+      - elasticsearch-*.rpm
+      - kibana-*.deb
+      - kibana-*.rpm
+    file_type: file
+    recurse: false
+  delegate_to: localhost
+  run_once: true
+  register: elastic_stack_package_scan
+
+- name: Validate package file names and availability
+  ansible.builtin.assert:
+    that:
+      - >-
+        elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | list | length == 1
+      - >-
+        elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | list | length == 1
+      - >-
+        elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | list | length == 1
+      - >-
+        elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | list | length == 1
+    fail_msg: >-
+      {{ ansible_master_location }} must contain exactly one correctly named
+      Elasticsearch and Kibana DEB and RPM, all at the same version
+      (for example elasticsearch-8.19.0-amd64.deb).
+  run_once: true
+
+- name: Record package files and versions on the controller
+  ansible.builtin.set_fact:
+    elastic_stack_artifacts:
+      elasticsearch_deb: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | map(attribute='path') | list | first) }}
+      elasticsearch_rpm: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | map(attribute='path') | list | first) }}
+      kibana_deb: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | map(attribute='path') | list | first) }}
+      kibana_rpm: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | map(attribute='path') | list | first) }}
+    elastic_stack_package_versions:
+      elasticsearch_deb: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | map(attribute='path') | list | first | basename
+        ).split('-')[1] }}
+      elasticsearch_rpm: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | map(attribute='path') | list | first | basename
+        ).split('-')[1] }}
+      kibana_deb: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        | map(attribute='path') | list | first | basename
+        ).split('-')[1] }}
+      kibana_rpm: >-
+        {{ (elastic_stack_package_scan.files
+        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
+        | map(attribute='path') | list | first | basename
+        ).split('-')[1] }}
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
+
+- name: Require matching Elasticsearch and Kibana package versions
+  ansible.builtin.assert:
+    that:
+      - hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb == hostvars['localhost'].elastic_stack_package_versions.elasticsearch_rpm
+      - hostvars['localhost'].elastic_stack_package_versions.kibana_deb == hostvars['localhost'].elastic_stack_package_versions.kibana_rpm
+      - hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb == hostvars['localhost'].elastic_stack_package_versions.kibana_deb
+    fail_msg: >-
+      Ubuntu and SLES packages for Elasticsearch and Kibana must all have
+      the same version.
+  run_once: true
+
+- name: Check that certificate files are present on the controller
+  ansible.builtin.stat:
+    path: "{{ elastic_stack_certificate_source_dir }}/{{ item }}"
+  loop:
+    - ca.crt
+    - elasticsearch.crt
+    - elasticsearch.key
+    - kibana.crt
+    - kibana.key
+  delegate_to: localhost
+  register: elastic_stack_certificate_stats
+
+- name: Require certificate files for both services
+  ansible.builtin.assert:
+    that:
+      - item.stat.exists
+      - item.stat.isreg
+    fail_msg: >-
+      Required certificate file {{ item.item }} is missing from
+      {{ elastic_stack_certificate_source_dir }}.
+  loop: "{{ elastic_stack_certificate_stats.results }}"
+
+- name: Check for legacy Elasticsearch data outside /srv
+  ansible.builtin.stat:
+    path: /var/lib/elasticsearch/nodes
+  register: elasticsearch_legacy_data
+
+- name: Protect legacy Elasticsearch data
+  ansible.builtin.assert:
+    that:
+      - not elasticsearch_legacy_data.stat.exists
+    fail_msg: >-
+      Existing Elasticsearch data was found under /var/lib/elasticsearch.
+      Migrate or explicitly review it before switching to /srv/elasticsearch/data.

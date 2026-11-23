@@ -1,0 +1,150 @@
+---
+- name: Select Kibana artifact for this platform
+  ansible.builtin.set_fact:
+    kibana_package_source: >-
+      {{ hostvars['localhost'].elastic_stack_artifacts.kibana_deb
+      if ansible_distribution == 'Ubuntu'
+      else hostvars['localhost'].elastic_stack_artifacts.kibana_rpm }}
+    kibana_package_version: >-
+      {{ hostvars['localhost'].elastic_stack_package_versions.kibana_deb
+      if ansible_distribution == 'Ubuntu'
+      else hostvars['localhost'].elastic_stack_package_versions.kibana_rpm }}
+
+- name: Copy Kibana package to target
+  ansible.builtin.copy:
+    src: "{{ kibana_package_source }}"
+    dest: "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
+    owner: root
+    group: root
+    mode: "0640"
+  register: kibana_package_copy
+
+- name: Read Kibana DEB package version
+  ansible.builtin.command:
+    argv:
+      - dpkg-deb
+      - --field
+      - "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
+      - Version
+  when: ansible_distribution == 'Ubuntu'
+  changed_when: false
+  register: kibana_package_metadata
+
+- name: Read Kibana RPM package version
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - -qp
+      - --queryformat
+      - "%{VERSION}"
+      - "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
+  when: ansible_distribution == 'SLES'
+  changed_when: false
+  register: kibana_package_metadata
+
+- name: Verify Kibana package metadata
+  ansible.builtin.assert:
+    that:
+      - kibana_package_metadata.stdout | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == kibana_package_version
+    fail_msg: The Kibana package metadata does not match its filename.
+
+- name: Read installed Kibana package versions
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Prevent an implicit Kibana downgrade
+  ansible.builtin.assert:
+    that:
+      - >-
+        ansible_facts.packages.get('kibana', [])
+        | map(attribute='version') | list | first
+        is version(kibana_package_version, '<=')
+    fail_msg: >-
+      The installed Kibana version is newer than the staged package.
+      Review and perform any downgrade as a separate change.
+  when: "'kibana' in ansible_facts.packages"
+
+- name: Install Kibana DEB package
+  ansible.builtin.apt:
+    deb: "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
+    state: present
+    policy_rc_d: 101
+  when: ansible_distribution == 'Ubuntu'
+  notify: Restart kibana
+
+- name: Install Kibana RPM package
+  ansible.builtin.command:
+    argv:
+      - zypper
+      - --non-interactive
+      - install
+      - --no-refresh
+      - --no-recommends
+      - "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
+  when:
+    - ansible_distribution == 'SLES'
+    - >-
+      'kibana' not in ansible_facts.packages or
+      ansible_facts.packages.kibana | map(attribute='version') | first
+      != kibana_package_version
+  changed_when: true
+  notify: Restart kibana
+
+- name: Stop Kibana before applying configuration
+  ansible.builtin.systemd_service:
+    name: kibana
+    state: stopped
+
+- name: Create Kibana certificate directory
+  ansible.builtin.file:
+    path: "{{ kibana_certificate_path }}"
+    state: directory
+    owner: root
+    group: kibana
+    mode: "0750"
+
+- name: Install Kibana CA certificate
+  ansible.builtin.copy:
+    src: "{{ kibana_certificate_source_dir }}/ca.crt"
+    dest: "{{ kibana_ca_certificate }}"
+    owner: root
+    group: kibana
+    mode: "0640"
+  notify: Restart kibana
+
+- name: Install Kibana server certificate
+  ansible.builtin.copy:
+    src: "{{ kibana_certificate_source_dir }}/kibana.crt"
+    dest: "{{ kibana_server_certificate }}"
+    owner: root
+    group: kibana
+    mode: "0640"
+  notify: Restart kibana
+
+- name: Install Kibana server private key
+  ansible.builtin.copy:
+    src: "{{ kibana_certificate_source_dir }}/kibana.key"
+    dest: "{{ kibana_server_key }}"
+    owner: root
+    group: kibana
+    mode: "0640"
+  notify: Restart kibana
+
+- name: Configure Kibana
+  ansible.builtin.template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    owner: root
+    group: kibana
+    mode: "0640"
+  no_log: true
+  notify: Restart kibana
+
+- name: Apply Kibana configuration before service setup
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Kibana
+  ansible.builtin.systemd_service:
+    name: kibana
+    enabled: true
+    state: started

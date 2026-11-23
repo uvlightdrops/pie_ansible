@@ -1,0 +1,199 @@
+# ==============================================================================
+# ANONYMIZIERTES NETZWERK-INVENTORY FÜR SIMULATIONSZWECKE
+# Hostname-Format: srv-ph-[ID] (Physical) / srv-vm-[ID] (Virtual)
+# ==============================================================================
+
+# apps: eMain, elastic
+# environments: live, stage, qa, train
+# departments: a, b, c, comm
+
+
+eMain:
+  children:
+    eMain_live:
+    eMain_stage:
+    eMain_qa:
+    eMain_train:
+
+elastic:
+  children:
+    elastic_live:
+    elastic_stage:
+    elastic_qa:
+    elastic_train:
+
+# --- Hierarchien ---
+
+eMain_live:
+  children:
+    eMain_live_dept_a:
+    eMain_live_dept_b:
+    eMain_live_dept_c:
+eMain_stage:
+  children:
+    eMain_stage_dept_a:
+    eMain_stage_dept_b:
+    eMain_stage_dept_c:
+eMain_qa:
+  children:
+    eMain_qa_dept_a:
+    eMain_qa_dept_b:
+    eMain_qa_dept_c:
+eMain_train:
+  children:
+    eMain_train_dept_a:
+    eMain_train_dept_b:
+    eMain_train_dept_c:
+
+elastic_live:
+  children:
+    elastic_live_dept_a:
+    elastic_live_dept_b:
+    elastic_live_dept_c:
+elastic_stage:
+  children:
+    elastic_stage_dept_a:
+    elastic_stage_dept_b:
+    elastic_stage_dept_c:
+elastic_qa:
+  children:
+    elastic_qa_dept_a:
+    elastic_qa_dept_b:
+    elastic_qa_dept_c:
+elastic_train:
+  children:
+    elastic_train_dept_a:
+    elastic_train_dept_b:
+    elastic_train_dept_c:
+
+live:
+  children:
+    eMain_live:
+    elastic_live:
+stage:
+  children:
+    eMain_stage:
+    elastic_stage:
+qa:
+  children:
+    eMain_qa:
+    elastic_qa:
+train:
+  children:
+    eMain_train:
+    elastic_train:
+
+# ==============================================================================
+# --- HOST DEFINITIONS ---
+# ==============================================================================
+
+# --- LIVE ---
+eMain_live_dept_a:
+  hosts:
+    srv-ph-901.internal.net.local: { ansible_host: 172.20.10.23 }
+    srv-ph-902.internal.net.local: { ansible_host: 172.20.10.70 }
+eMain_live_dept_b:
+  hosts:
+    srv-ph-903.internal.net.local: { ansible_host: 172.20.11.76 }
+    srv-ph-904.internal.net.local: { ansible_host: 172.20.11.74 }
+eMain_live_dept_c:
+  hosts:
+    srv-ph-905.internal.net.local: { ansible_host: 172.20.12.23 }
+    srv-ph-906.internal.net.local: { ansible_host: 172.20.12.46 }
+
+elastic_live_dept_a:
+  hosts:
+    srv-vm-501.internal.net.local:
+      ansible_host: 172.20.10.72
+      db.url: "jdbc:oracle:thin:@db-alpha-live.internal.net.local:1531/alpha_live.net"
+elastic_live_dept_b:
+  hosts:
+    srv-vm-502.internal.net.local:
+      ansible_host: 172.20.11.71
+      db.url: "jdbc:oracle:thin:@db-beta-live.internal.net.local:1532/beta_live.net"
+elastic_live_dept_c:
+  hosts:
+    srv-vm-503.internal.net.local:
+      ansible_host: 172.20.12.50
+      db.url: "jdbc:oracle:thin:@db-gamma-live.internal.net.local:1530/gamma_live.net"
+
+# --- STAGE ---
+eMain_stage_dept_a:
+  hosts:
+    srv-ph-910.internal.net.local: { ansible_host: 172.20.20.69 }
+    srv-ph-911.internal.net.local: { ansible_host: 172.20.20.68 }
+eMain_stage_dept_b:
+  hosts:
+    srv-ph-912.internal.net.local: { ansible_host: 172.20.21.23 }
+    srv-ph-913.internal.net.local: { ansible_host: 172.20.21.22 }
+eMain_stage_dept_c:
+  hosts:
+    srv-ph-914.internal.net.local: { ansible_host: 172.20.22.120 }
+    srv-ph-915.internal.net.local: { ansible_host: 172.20.22.22 }
+
+elastic_stage_dept_a:
+  hosts:
+    srv-vm-510.internal.net.local:
+      ansible_host: 172.20.20.74
+      db.url: "jdbc:oracle:thin:@db-alpha-stage.internal.net.local:1532/alpha_stage.net"
+elastic_stage_dept_b:
+  hosts:
+    srv-vm-511.internal.net.local:
+      ansible_host: 172.20.21.73
+      db.url: "jdbc:oracle:thin:@db-beta-stage.internal.net.local:1533/beta_stage.net"
+elastic_stage_dept_c:
+  hosts:
+    srv-vm-512.internal.net.local:
+      ansible_host: 172.20.22.52
+      db.url: "jdbc:oracle:thin:@db-gamma-stage.internal.net.local:1533/gamma_stage.net"
+
+# --- QA ---
+eMain_qa_dept_a:
+  hosts:
+    srv-ph-920.internal.net.local: { ansible_host: 172.20.30.109 }
+eMain_qa_dept_b:
+  hosts:
+    srv-ph-921.internal.net.local: { ansible_host: 172.20.31.113 }
+eMain_qa_dept_c:
+  hosts:
+    srv-ph-922.internal.net.local: { ansible_host: 172.20.32.118 }
+
+elastic_qa_dept_a:
+  hosts:
+    srv-vm-610.internal.net.local:
+      ansible_host: 172.20.30.89
+      db.url: "jdbc:oracle:thin:@db-alpha-qa.internal.net.local:1534/alpha_qa.net"
+elastic_qa_dept_b:
+  hosts:
+    srv-vm-611.internal.net.local:
+      ansible_host: 172.20.31.35
+      db.url: "jdbc:oracle:thin:@db-beta-qa.internal.net.local:1535/beta_qa.net"
+elastic_qa_dept_c:
+  hosts:
+    srv-vm-612.internal.net.local:
+      ansible_host: 172.20.32.41
+      db.url: "jdbc:oracle:thin:@db-gamma-qa.internal.net.local:1534/gamma_qa.net"
+
+# --- TRAIN ---
+eMain_train_dept_a:
+  hosts:
+    srv-ph-930.internal.net.local: { ansible_host: 172.20.40.86 }
+eMain_train_dept_b:
+  hosts:
+    srv-ph-931.internal.net.local: { ansible_host: 172.20.41.80 }
+eMain_train_dept_c:
+  hosts:
+    srv-ph-932.internal.net.local: { ansible_host: 172.20.42.31 }
+
+elastic_train_dept_a:
+  hosts:
+    srv-vm-710.internal.net.local:
+      ansible_host: 172.20.40.67
+      db.url: "jdbc:oracle:thin:@db-alpha-train.internal.net.local:1534/alpha_train.net"
+elastic_train_dept_b:
+  hosts:
+    srv-vm-711.internal.net.local:
+      ansible_host: 172.20.41.70
+      db.url: "jdbc:oracle:thin:@db-beta-train.internal.net.local:1535/beta_train.net"
+elastic_train_dept_c:
+  hosts: {}

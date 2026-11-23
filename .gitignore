@@ -1,0 +1,8 @@
+.env
+.env.*
+/config/ansible/group_vars/elastic/vault.yml
+/config/ansible/vault-password-file
+/sources/docker/exports/*
+!/sources/docker/exports/.gitkeep
+
+.idea/

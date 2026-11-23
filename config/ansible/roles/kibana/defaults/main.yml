@@ -1,0 +1,8 @@
+---
+kibana_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"
+kibana_certificate_path: /etc/kibana/certs
+kibana_server_certificate: "{{ kibana_certificate_path }}/kibana.crt"
+kibana_server_key: "{{ kibana_certificate_path }}/kibana.key"
+kibana_ca_certificate: "{{ kibana_certificate_path }}/ca.crt"
+kibana_server_address: "{{ ansible_default_ipv4.address }}"
+kibana_server_port: 5601

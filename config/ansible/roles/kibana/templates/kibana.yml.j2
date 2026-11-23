@@ -1,0 +1,13 @@
+server.host: "{{ kibana_server_address }}"
+server.port: {{ kibana_server_port }}
+server.ssl.enabled: true
+server.ssl.certificate: "{{ kibana_server_certificate }}"
+server.ssl.key: "{{ kibana_server_key }}"
+
+elasticsearch.hosts:
+  - "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}"
+elasticsearch.username: kibana_system
+elasticsearch.password: {{ kibana_system_password | to_json }}
+elasticsearch.ssl.certificateAuthorities:
+  - "{{ kibana_ca_certificate }}"
+elasticsearch.ssl.verificationMode: full

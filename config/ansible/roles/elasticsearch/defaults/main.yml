@@ -1,0 +1,14 @@
+---
+elasticsearch_data_path: /srv/elasticsearch/data
+elasticsearch_http_port: 9200
+elasticsearch_transport_port: 9300
+elasticsearch_api_host: "{{ inventory_hostname }}"
+elasticsearch_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"
+elasticsearch_certificate_path: /etc/elasticsearch/certs
+elasticsearch_http_certificate: "{{ elasticsearch_certificate_path }}/elasticsearch.crt"
+elasticsearch_http_key: "{{ elasticsearch_certificate_path }}/elasticsearch.key"
+elasticsearch_ca_certificate: "{{ elasticsearch_certificate_path }}/ca.crt"
+elasticsearch_bind_address: "{{ ansible_default_ipv4.address }}"
+elasticsearch_cluster_name: >-
+  {{ (group_names | select('match', '^elastic_.+_dept_.+$') | list | first | default(inventory_hostname))
+  | regex_replace('^elastic_', 'itdlz-') | regex_replace('_', '-') }}

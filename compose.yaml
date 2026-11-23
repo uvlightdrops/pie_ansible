@@ -1,0 +1,35 @@
+name: itdlz-sim
+
+services:
+  elasticsearch:
+    extends:
+      file: sources/docker/elasticsearch-image.yaml
+      service: elasticsearch
+    environment:
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    mem_limit: 2g
+    volumes:
+      - ./config/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - testnetz
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - --max-time
+        - "4"
+        - http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=2s
+      interval: 5s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+
+networks:
+  testnetz:
+    internal: true
+
+volumes:
+  elasticsearch-data:

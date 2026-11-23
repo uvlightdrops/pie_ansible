@@ -1,0 +1,244 @@
+---
+- name: Select Elasticsearch artifact for this platform
+  ansible.builtin.set_fact:
+    elasticsearch_package_source: >-
+      {{ hostvars['localhost'].elastic_stack_artifacts.elasticsearch_deb
+      if ansible_distribution == 'Ubuntu'
+      else hostvars['localhost'].elastic_stack_artifacts.elasticsearch_rpm }}
+    elasticsearch_package_version: >-
+      {{ hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb
+      if ansible_distribution == 'Ubuntu'
+      else hostvars['localhost'].elastic_stack_package_versions.elasticsearch_rpm }}
+
+- name: Create package cache on target
+  ansible.builtin.file:
+    path: "{{ elastic_stack_package_cache }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Copy Elasticsearch package to target
+  ansible.builtin.copy:
+    src: "{{ elasticsearch_package_source }}"
+    dest: "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
+    owner: root
+    group: root
+    mode: "0640"
+  register: elasticsearch_package_copy
+
+- name: Read Elasticsearch DEB package version
+  ansible.builtin.command:
+    argv:
+      - dpkg-deb
+      - --field
+      - "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
+      - Version
+  when: ansible_distribution == 'Ubuntu'
+  changed_when: false
+  register: elasticsearch_package_metadata
+
+- name: Read Elasticsearch RPM package version
+  ansible.builtin.command:
+    argv:
+      - rpm
+      - -qp
+      - --queryformat
+      - "%{VERSION}"
+      - "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
+  when: ansible_distribution == 'SLES'
+  changed_when: false
+  register: elasticsearch_package_metadata
+
+- name: Verify Elasticsearch package metadata
+  ansible.builtin.assert:
+    that:
+      - elasticsearch_package_metadata.stdout | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == elasticsearch_package_version
+    fail_msg: The Elasticsearch package metadata does not match its filename.
+
+- name: Read installed package versions
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Prevent an implicit Elasticsearch downgrade
+  ansible.builtin.assert:
+    that:
+      - >-
+        ansible_facts.packages.get('elasticsearch', [])
+        | map(attribute='version') | list | first
+        is version(elasticsearch_package_version, '<=')
+    fail_msg: >-
+      The installed Elasticsearch version is newer than the staged package.
+      Review and perform any downgrade as a separate data migration.
+  when: "'elasticsearch' in ansible_facts.packages"
+
+- name: Install Elasticsearch DEB package
+  ansible.builtin.apt:
+    deb: "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
+    state: present
+    policy_rc_d: 101
+  when: ansible_distribution == 'Ubuntu'
+  notify: Restart elasticsearch
+
+- name: Install Elasticsearch RPM package
+  ansible.builtin.command:
+    argv:
+      - zypper
+      - --non-interactive
+      - install
+      - --no-refresh
+      - --no-recommends
+      - "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
+  when:
+    - ansible_distribution == 'SLES'
+    - >-
+      'elasticsearch' not in ansible_facts.packages or
+      ansible_facts.packages.elasticsearch | map(attribute='version') | first
+      != elasticsearch_package_version
+  changed_when: true
+  notify: Restart elasticsearch
+
+- name: Stop Elasticsearch before applying configuration
+  ansible.builtin.systemd_service:
+    name: elasticsearch
+    state: stopped
+
+- name: Check Elasticsearch data after package installation
+  ansible.builtin.stat:
+    path: /var/lib/elasticsearch/nodes
+  register: elasticsearch_postinstall_legacy_data
+
+- name: Protect data created by package installation
+  ansible.builtin.assert:
+    that:
+      - not elasticsearch_postinstall_legacy_data.stat.exists
+    fail_msg: >-
+      Elasticsearch created data under /var/lib/elasticsearch during
+      package installation. Migrate or review it before using /srv.
+
+- name: Create Elasticsearch data and certificate directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - path: "{{ elasticsearch_data_path }}"
+      owner: elasticsearch
+      group: elasticsearch
+      mode: "0750"
+    - path: "{{ elasticsearch_certificate_path }}"
+      owner: root
+      group: elasticsearch
+      mode: "0750"
+
+- name: Install Elasticsearch CA certificate
+  ansible.builtin.copy:
+    src: "{{ elasticsearch_certificate_source_dir }}/ca.crt"
+    dest: "{{ elasticsearch_ca_certificate }}"
+    owner: root
+    group: elasticsearch
+    mode: "0640"
+  notify: Restart elasticsearch
+
+- name: Install Elasticsearch node certificate
+  ansible.builtin.copy:
+    src: "{{ elasticsearch_certificate_source_dir }}/elasticsearch.crt"
+    dest: "{{ elasticsearch_http_certificate }}"
+    owner: root
+    group: elasticsearch
+    mode: "0640"
+  notify: Restart elasticsearch
+
+- name: Install Elasticsearch node private key
+  ansible.builtin.copy:
+    src: "{{ elasticsearch_certificate_source_dir }}/elasticsearch.key"
+    dest: "{{ elasticsearch_http_key }}"
+    owner: root
+    group: elasticsearch
+    mode: "0640"
+  notify: Restart elasticsearch
+
+- name: Configure Elasticsearch
+  ansible.builtin.template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    owner: root
+    group: elasticsearch
+    mode: "0640"
+  notify: Restart elasticsearch
+
+- name: Check Elasticsearch data path
+  ansible.builtin.stat:
+    path: "{{ elasticsearch_data_path }}/nodes"
+  register: elasticsearch_data_nodes
+
+- name: Check Elasticsearch keystore
+  ansible.builtin.stat:
+    path: /etc/elasticsearch/elasticsearch.keystore
+  register: elasticsearch_keystore_file
+
+- name: Create Elasticsearch keystore when missing
+  ansible.builtin.command:
+    argv:
+      - /usr/share/elasticsearch/bin/elasticsearch-keystore
+      - create
+  when: not elasticsearch_keystore_file.stat.exists
+  changed_when: true
+
+- name: Set bootstrap password on a new Elasticsearch data path
+  ansible.builtin.command:
+    argv:
+      - /usr/share/elasticsearch/bin/elasticsearch-keystore
+      - add
+      - -x
+      - -f
+      - bootstrap.password
+    stdin: "{{ elasticsearch_bootstrap_password }}"
+  when: not elasticsearch_data_nodes.stat.exists
+  no_log: true
+  changed_when: true
+  notify: Restart elasticsearch
+
+- name: Apply Elasticsearch configuration before service setup
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Elasticsearch
+  ansible.builtin.systemd_service:
+    name: elasticsearch
+    enabled: true
+    state: started
+
+- name: Set Kibana system account password
+  ansible.builtin.uri:
+    url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/kibana_system/_password"
+    method: PUT
+    user: elastic
+    password: "{{ elasticsearch_bootstrap_password }}"
+    force_basic_auth: true
+    validate_certs: true
+    ca_path: "{{ elasticsearch_ca_certificate }}"
+    body_format: json
+    body:
+      password: "{{ kibana_system_password }}"
+    status_code: 200
+  no_log: true
+  changed_when: false
+
+- name: List Elasticsearch keystore settings
+  ansible.builtin.command:
+    argv:
+      - /usr/share/elasticsearch/bin/elasticsearch-keystore
+      - list
+  changed_when: false
+  register: elasticsearch_keystore_settings
+
+- name: Remove bootstrap password from Elasticsearch keystore
+  ansible.builtin.command:
+    argv:
+      - /usr/share/elasticsearch/bin/elasticsearch-keystore
+      - remove
+      - bootstrap.password
+  when: "'bootstrap.password' in elasticsearch_keystore_settings.stdout_lines"
+  changed_when: true

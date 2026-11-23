@@ -1,0 +1,5 @@
+---
+# Copy this file to vault.yml, replace the placeholders, and encrypt it with
+# ansible-vault before deployment. Never commit the encrypted vault.yml.
+elasticsearch_bootstrap_password: "REPLACE_WITH_A_LONG_RANDOM_SECRET"
+kibana_system_password: "REPLACE_WITH_A_DIFFERENT_LONG_RANDOM_SECRET"

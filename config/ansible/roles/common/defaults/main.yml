@@ -1,0 +1,39 @@
+---
+# Shared defaults for Ansible-managed services.
+serviceuser: dummysvc
+servicegroup: dummygroup
+
+group_linux_eip_admin: linux-admins
+user_linux_eip_admin: "{{ serviceuser }}"
+
+mount_point: /tmp/team
+ansible_master_location: /srv/Ansible_Sources
+download_location: "{{ mount_point }}/ansibletower/Ansible_Sources"
+remote_src_bool: false
+
+install_location: /srv
+ansible_workdir: /srv/ansible_workdir
+ansibletower: "{{ mount_point }}/ansibletower"
+installer_location: "{{ install_location }}/_install"
+jolokia_location: "{{ install_location }}/jolokia"
+
+eMain_location: "{{ install_location }}/eMain"
+tomcat_location: "{{ install_location }}/tomcat"
+aliases: "{{ ansible_fqdn }}"
+
+ssl:
+  root:
+    certificate: /etc/ssl/certs/Root-CA-2019.pem
+    alias: root-ca-2019
+  mid:
+    certificate: /etc/ssl/certs/Softtoken-Issuing-CA-2019.pem
+    alias: softtoken-issuing-ca-2019
+  osci:
+    certificate: /etc/ssl/certs/Root_X2.pem
+    alias: isrg_root_x1
+  safe:
+    certificate: /etc/ssl/certs/CA_2_2023.pem
+    alias: D-Root_CA_2_2023
+
+elastic_stack_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"
+elastic_stack_package_cache: "{{ ansible_workdir }}/elastic-stack-packages"

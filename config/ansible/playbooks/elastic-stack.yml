@@ -1,0 +1,36 @@
+---
+- name: Deploy Elasticsearch and Kibana
+  hosts: elastic
+  remote_user: "{{ serviceuser }}"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Validate target operating system
+      ansible.builtin.assert:
+        that:
+          - >-
+            (ansible_distribution == 'Ubuntu' and
+             ansible_distribution_version is version('24.04', '>=') and
+             ansible_distribution_version is version('24.10', '<')) or
+            (ansible_distribution == 'SLES' and
+             ansible_distribution_major_version == '15')
+        fail_msg: >-
+          Supported systems are Ubuntu 24 LTS and SLES 15; found
+          {{ ansible_distribution }} {{ ansible_distribution_version }}.
+
+    - name: Require vaulted deployment credentials
+      ansible.builtin.assert:
+        that:
+          - elasticsearch_bootstrap_password is defined
+          - elasticsearch_bootstrap_password | length >= 20
+          - kibana_system_password is defined
+          - kibana_system_password | length >= 20
+        fail_msg: >-
+          Create and encrypt config/ansible/group_vars/elastic/vault.yml
+          from vault.yml.example before deployment.
+
+  roles:
+    - common
+    - elasticsearch
+    - kibana
