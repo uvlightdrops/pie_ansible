@@ -28,7 +28,7 @@
       - Version
   when: ansible_distribution == 'Ubuntu'
   changed_when: false
-  register: kibana_package_metadata
+  register: kibana_deb_package_metadata
 
 - name: Read Kibana RPM package version
   ansible.builtin.command:
@@ -40,12 +40,15 @@
       - "{{ elastic_stack_package_cache }}/{{ kibana_package_source | basename }}"
   when: ansible_distribution == 'SLES'
   changed_when: false
-  register: kibana_package_metadata
+  register: kibana_rpm_package_metadata
 
 - name: Verify Kibana package metadata
   ansible.builtin.assert:
     that:
-      - kibana_package_metadata.stdout | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == kibana_package_version
+      - >-
+        (kibana_deb_package_metadata.stdout if ansible_distribution == 'Ubuntu'
+        else kibana_rpm_package_metadata.stdout)
+        | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == kibana_package_version
     fail_msg: The Kibana package metadata does not match its filename.
 
 - name: Read installed Kibana package versions

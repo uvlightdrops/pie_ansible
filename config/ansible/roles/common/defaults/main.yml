@@ -37,3 +37,7 @@ ssl:
 
 elastic_stack_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"
 elastic_stack_package_cache: "{{ ansible_workdir }}/elastic-stack-packages"
+elastic_stack_elasticsearch_deb_dir: "{{ ansible_master_location }}/elasticsearch/deb"
+elastic_stack_elasticsearch_rpm_dir: "{{ ansible_master_location }}/elasticsearch/rpm"
+elastic_stack_kibana_deb_dir: "{{ ansible_master_location }}/kibana/deb"
+elastic_stack_kibana_rpm_dir: "{{ ansible_master_location }}/kibana/rpm"

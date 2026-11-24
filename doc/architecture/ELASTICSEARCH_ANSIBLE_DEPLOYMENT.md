@@ -5,8 +5,8 @@ agent_project: pie_ansible
 scope: architecture
 purpose: Beschreibt Ansible-Rollen, Plattformpakete und sichere Konfiguration für Elasticsearch und Kibana.
 created: null
-updated: "2026-11-22 07"
-update_reason: "Elasticsearch- und Kibana-Rollen, Paketprüfung, TLS, Vault-Zugangsdaten und Ausführung dokumentiert."
+updated: "2026-11-24 13"
+update_reason: "Paketverzeichnisse für Elasticsearch und Kibana dokumentiert."
 status: draft
 relations:
   - target: ../network/README.md
@@ -93,9 +93,10 @@ relations: []
 ```
 
 Die gemeinsamen Defaults setzen `ansible_master_location` auf
-`/srv/Ansible_Sources` auf dem Ansible-Controller. Dort muss genau je ein
-Elasticsearch- und Kibana-Paket für beide Zielplattformen liegen. Die
-Dateinamen enthalten Version und Architektur, zum Beispiel:
+`/srv/Ansible_Sources` auf dem Ansible-Controller. Darunter erwartet Ansible
+je ein Paket in den Verzeichnissen `elasticsearch/deb/`,
+`elasticsearch/rpm/`, `kibana/deb/` und `kibana/rpm/`. Die Dateinamen
+enthalten Version und Architektur, zum Beispiel:
 
 ```sh
 elasticsearch-8.19.0-amd64.deb
@@ -225,8 +226,9 @@ starke, unterschiedliche Werte für `elasticsearch_bootstrap_password` und
 Vault-Passwortdatei sind von Git ausgeschlossen. Zugangsdaten liegen nicht
 im Inventory oder in Rollen-Defaults. Die Kibana-Konfiguration auf dem
 Zielhost enthält das Kibana-Zugangspasswort und ist deshalb auf den
-Dienstbenutzer beschränkt. Das Bootstrap-Passwort wird nach der ersten
-erfolgreichen Einrichtung aus dem Elasticsearch-Keystore entfernt.
+Dienstbenutzer beschränkt. Bei der Ersteinrichtung wird der Bootstrap-Wert
+als Passwort des `elastic`-Benutzers gesetzt; anschließend wird
+`bootstrap.password` aus dem Elasticsearch-Keystore entfernt.
 Eine spätere Änderung des Passworts für den `elastic`-Benutzer muss mit
 dem dazugehörigen Elasticsearch-Verfahren abgestimmt werden; das Playbook
 verwendet den Vault-Wert für die API-Authentifizierung.

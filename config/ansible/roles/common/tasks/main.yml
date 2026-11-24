@@ -1,83 +1,100 @@
 ---
-- name: Require supported platform package artifacts
+- name: Find Elasticsearch DEB package
   ansible.builtin.find:
-    paths: "{{ ansible_master_location }}"
-    patterns:
-      - elasticsearch-*.deb
-      - elasticsearch-*.rpm
-      - kibana-*.deb
-      - kibana-*.rpm
+    paths: "{{ elastic_stack_elasticsearch_deb_dir }}"
+    patterns: elasticsearch-*.deb
     file_type: file
     recurse: false
   delegate_to: localhost
+  become: false
   run_once: true
-  register: elastic_stack_package_scan
+  register: elasticsearch_deb_scan
+
+- name: Find Elasticsearch RPM package
+  ansible.builtin.find:
+    paths: "{{ elastic_stack_elasticsearch_rpm_dir }}"
+    patterns: elasticsearch-*.rpm
+    file_type: file
+    recurse: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: elasticsearch_rpm_scan
+
+- name: Find Kibana DEB package
+  ansible.builtin.find:
+    paths: "{{ elastic_stack_kibana_deb_dir }}"
+    patterns: kibana-*.deb
+    file_type: file
+    recurse: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: kibana_deb_scan
+
+- name: Find Kibana RPM package
+  ansible.builtin.find:
+    paths: "{{ elastic_stack_kibana_rpm_dir }}"
+    patterns: kibana-*.rpm
+    file_type: file
+    recurse: false
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: kibana_rpm_scan
 
 - name: Validate package file names and availability
   ansible.builtin.assert:
     that:
       - >-
-        elastic_stack_package_scan.files
+        elasticsearch_deb_scan.files
         | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
         | list | length == 1
       - >-
-        elastic_stack_package_scan.files
+        elasticsearch_deb_scan.files | length == 1
+      - >-
+        elasticsearch_rpm_scan.files
         | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
         | list | length == 1
       - >-
-        elastic_stack_package_scan.files
+        elasticsearch_rpm_scan.files | length == 1
+      - >-
+        kibana_deb_scan.files
         | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
         | list | length == 1
       - >-
-        elastic_stack_package_scan.files
+        kibana_deb_scan.files | length == 1
+      - >-
+        kibana_rpm_scan.files
         | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
         | list | length == 1
+      - >-
+        kibana_rpm_scan.files | length == 1
     fail_msg: >-
-      {{ ansible_master_location }} must contain exactly one correctly named
-      Elasticsearch and Kibana DEB and RPM, all at the same version
-      (for example elasticsearch-8.19.0-amd64.deb).
+      Each package directory must contain exactly one correctly named package:
+      {{ elastic_stack_elasticsearch_deb_dir }},
+      {{ elastic_stack_elasticsearch_rpm_dir }},
+      {{ elastic_stack_kibana_deb_dir }} and
+      {{ elastic_stack_kibana_rpm_dir }}. Package names must include version
+      and architecture (for example elasticsearch-8.19.0-amd64.deb).
   run_once: true
 
 - name: Record package files and versions on the controller
   ansible.builtin.set_fact:
     elastic_stack_artifacts:
-      elasticsearch_deb: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
-        | map(attribute='path') | list | first) }}
-      elasticsearch_rpm: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | map(attribute='path') | list | first) }}
-      kibana_deb: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
-        | map(attribute='path') | list | first) }}
-      kibana_rpm: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | map(attribute='path') | list | first) }}
+      elasticsearch_deb: "{{ elasticsearch_deb_scan.files[0].path }}"
+      elasticsearch_rpm: "{{ elasticsearch_rpm_scan.files[0].path }}"
+      kibana_deb: "{{ kibana_deb_scan.files[0].path }}"
+      kibana_rpm: "{{ kibana_rpm_scan.files[0].path }}"
     elastic_stack_package_versions:
       elasticsearch_deb: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
-        | map(attribute='path') | list | first | basename
-        ).split('-')[1] }}
+        {{ (elasticsearch_deb_scan.files[0].path | basename).split('-')[1] }}
       elasticsearch_rpm: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | map(attribute='path') | list | first | basename
-        ).split('-')[1] }}
+        {{ (elasticsearch_rpm_scan.files[0].path | basename).split('-')[1] }}
       kibana_deb: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
-        | map(attribute='path') | list | first | basename
-        ).split('-')[1] }}
+        {{ (kibana_deb_scan.files[0].path | basename).split('-')[1] }}
       kibana_rpm: >-
-        {{ (elastic_stack_package_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | map(attribute='path') | list | first | basename
-        ).split('-')[1] }}
+        {{ (kibana_rpm_scan.files[0].path | basename).split('-')[1] }}
   delegate_to: localhost
   delegate_facts: true
   run_once: true
@@ -103,6 +120,7 @@
     - kibana.crt
     - kibana.key
   delegate_to: localhost
+  become: false
   register: elastic_stack_certificate_stats
 
 - name: Require certificate files for both services

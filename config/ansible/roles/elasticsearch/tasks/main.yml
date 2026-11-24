@@ -36,7 +36,7 @@
       - Version
   when: ansible_distribution == 'Ubuntu'
   changed_when: false
-  register: elasticsearch_package_metadata
+  register: elasticsearch_deb_package_metadata
 
 - name: Read Elasticsearch RPM package version
   ansible.builtin.command:
@@ -48,12 +48,15 @@
       - "{{ elastic_stack_package_cache }}/{{ elasticsearch_package_source | basename }}"
   when: ansible_distribution == 'SLES'
   changed_when: false
-  register: elasticsearch_package_metadata
+  register: elasticsearch_rpm_package_metadata
 
 - name: Verify Elasticsearch package metadata
   ansible.builtin.assert:
     that:
-      - elasticsearch_package_metadata.stdout | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == elasticsearch_package_version
+      - >-
+        (elasticsearch_deb_package_metadata.stdout if ansible_distribution == 'Ubuntu'
+        else elasticsearch_rpm_package_metadata.stdout)
+        | regex_search('^[0-9]+\.[0-9]+\.[0-9]+') == elasticsearch_package_version
     fail_msg: The Elasticsearch package metadata does not match its filename.
 
 - name: Read installed package versions
@@ -210,6 +213,35 @@
     enabled: true
     state: started
 
+- name: List Elasticsearch keystore settings
+  ansible.builtin.command:
+    argv:
+      - /usr/share/elasticsearch/bin/elasticsearch-keystore
+      - list
+  changed_when: false
+  register: elasticsearch_keystore_settings
+
+- name: Persist the initial elastic account password
+  ansible.builtin.uri:
+    url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/elastic/_password"
+    method: PUT
+    user: elastic
+    password: "{{ elasticsearch_bootstrap_password }}"
+    force_basic_auth: true
+    validate_certs: true
+    ca_path: "{{ elasticsearch_ca_certificate }}"
+    body_format: json
+    body:
+      password: "{{ elasticsearch_bootstrap_password }}"
+    status_code: 200
+  register: elasticsearch_initial_password_result
+  until: elasticsearch_initial_password_result.status | default(-1) == 200
+  retries: 20
+  delay: 3
+  when: "'bootstrap.password' in elasticsearch_keystore_settings.stdout_lines"
+  no_log: true
+  changed_when: true
+
 - name: Set Kibana system account password
   ansible.builtin.uri:
     url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/kibana_system/_password"
@@ -224,15 +256,11 @@
       password: "{{ kibana_system_password }}"
     status_code: 200
   no_log: true
+  register: kibana_password_result
+  until: kibana_password_result.status | default(-1) == 200
+  retries: 20
+  delay: 3
   changed_when: false
-
-- name: List Elasticsearch keystore settings
-  ansible.builtin.command:
-    argv:
-      - /usr/share/elasticsearch/bin/elasticsearch-keystore
-      - list
-  changed_when: false
-  register: elasticsearch_keystore_settings
 
 - name: Remove bootstrap password from Elasticsearch keystore
   ansible.builtin.command:

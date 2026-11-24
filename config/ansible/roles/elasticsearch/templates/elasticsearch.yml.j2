@@ -1,6 +1,7 @@
 cluster.name: "{{ elasticsearch_cluster_name }}"
 node.name: "{{ inventory_hostname }}"
 path.data: "{{ elasticsearch_data_path }}"
+path.logs: /var/log/elasticsearch
 network.host: "{{ elasticsearch_bind_address }}"
 http.port: {{ elasticsearch_http_port }}
 transport.port: {{ elasticsearch_transport_port }}
