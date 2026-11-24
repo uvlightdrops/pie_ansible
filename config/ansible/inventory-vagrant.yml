@@ -1,0 +1,9 @@
+---
+elastic:
+  hosts:
+    elastic-vm:
+      ansible_host: elastic-vm
+      ansible_user: vagrant
+      ansible_ssh_common_args: "-F {{ inventory_dir }}/../../.vagrant/ssh_config"
+      ansible_master_location: "{{ inventory_dir }}/../../../Ansible_Sources"
+      elasticsearch_api_host: "{{ ansible_default_ipv4.address }}"

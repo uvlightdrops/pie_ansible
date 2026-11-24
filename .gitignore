@@ -6,3 +6,4 @@
 !/sources/docker/exports/.gitkeep
 
 .idea/
+/.vagrant/
