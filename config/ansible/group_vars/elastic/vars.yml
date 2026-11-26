@@ -1,4 +1,3 @@
-serviceuser: dummysvc
 ansible_user: "{{ serviceuser }}"
 
 elastic_stack_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"

@@ -27,8 +27,9 @@
           - kibana_system_password is defined
           - kibana_system_password | length >= 20
         fail_msg: >-
-          Create and encrypt config/ansible/group_vars/elastic/vault.yml
-          from vault.yml.example before deployment.
+          Create and encrypt a local vault from
+          config/ansible/group_vars/elastic/vault.yml.example and link it as
+          config/ansible/group_vars/elastic/vault.yml before deployment.
 
   roles:
     - common

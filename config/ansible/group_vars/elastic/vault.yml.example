@@ -1,5 +1,5 @@
 ---
-# Copy this file to vault.yml, replace the placeholders, and encrypt it with
-# ansible-vault before deployment. Never commit the encrypted vault.yml.
+# Copy this file to .local/vault-dev.yml, replace the placeholders, encrypt it
+# with ansible-vault, and link vault.yml to it. Never commit the local files.
 elasticsearch_bootstrap_password: "REPLACE_WITH_A_LONG_RANDOM_SECRET"
 kibana_system_password: "REPLACE_WITH_A_DIFFERENT_LONG_RANDOM_SECRET"

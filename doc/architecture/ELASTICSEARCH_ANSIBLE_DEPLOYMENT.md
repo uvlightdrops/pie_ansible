@@ -1,17 +1,11 @@
 ---
-title: Elasticsearch-Deployment mit Ansible
 project: pie_ansible
 agent_project: pie_ansible
 scope: architecture
-purpose: Beschreibt Ansible-Rollen, Plattformpakete und sichere Konfiguration für Elasticsearch und Kibana.
 created: null
-updated: "2026-11-24 13"
-update_reason: "Paketverzeichnisse für Elasticsearch und Kibana dokumentiert."
+updated: "2026-11-26 11"
+update_reason: "Lokale Serviceuser-Konfiguration per Symlink dokumentiert."
 status: draft
-relations:
-  - target: ../network/README.md
-    type: reference
-    reason: Beschreibt Elasticsearch-Zielhosts, Anwendungsgrenzen und Netzwerkkontext.
 ---
 
 # Elasticsearch-Deployment mit Ansible
@@ -55,6 +49,7 @@ config/ansible/
   group_vars/
     elastic/
       vars.yml
+      serviceuser.yml.example
       vault.yml.example
   playbooks/
     elastic-stack.yml
@@ -119,12 +114,34 @@ Der erste Rollout sollte eine einzelne Testgruppe ansteuern. Nach Prüfung
 von Diensten und Netzwerkzugriff kann die Ausweitung auf weitere Umgebungs-
 und Fachbereichsgruppen erfolgen.
 
+Der SSH-Servicebenutzer wird auf dem Ansible-Controller lokal konfiguriert:
+
+```sh
+mkdir -p config/ansible/group_vars/elastic/.local
+cp config/ansible/group_vars/elastic/serviceuser.yml.example \
+  config/ansible/group_vars/elastic/.local/serviceuser-dev.yml
+chmod 600 config/ansible/group_vars/elastic/.local/serviceuser-dev.yml
+ln -s .local/serviceuser-dev.yml config/ansible/group_vars/elastic/serviceuser.yml
+```
+
+In `serviceuser-dev.yml` den Platzhalter durch den lokalen Servicebenutzer
+ersetzen. Auf dem Produktions-Controller entsprechend `serviceuser-prod.yml`
+in `.local/` anlegen und `serviceuser.yml` darauf verlinken. Der Symlink
+und `.local/` sind von Git ausgeschlossen. Das versteckte Unterverzeichnis
+verhindert, dass Ansible beide umgebungsspezifischen Dateien direkt lädt.
+Die Auswahl gilt für alle Elastic-Ziele dieses Controllers; der Symlink
+verschlüsselt keine Daten. Ohne lokale Einstellung bleibt der gemeinsame
+Default `dummysvc` wirksam.
+
 Die Zugangsdaten werden vor dem Lauf vorbereitet und verschlüsselt:
 
 ```sh
 cp config/ansible/group_vars/elastic/vault.yml.example \
-  config/ansible/group_vars/elastic/vault.yml
-ansible-vault encrypt config/ansible/group_vars/elastic/vault.yml
+  config/ansible/group_vars/elastic/.local/vault-dev.yml
+chmod 600 config/ansible/group_vars/elastic/.local/vault-dev.yml
+# Platzhalter in .local/vault-dev.yml durch Zugangsdaten ersetzen.
+ansible-vault encrypt config/ansible/group_vars/elastic/.local/vault-dev.yml
+ln -s .local/vault-dev.yml config/ansible/group_vars/elastic/vault.yml
 ANSIBLE_CONFIG=config/ansible/ansible.cfg \
   ansible-playbook config/ansible/playbooks/elastic-stack.yml \
   --limit elastic_qa_dept_a --ask-vault-pass
@@ -133,8 +150,8 @@ ANSIBLE_CONFIG=config/ansible/ansible.cfg \
 `elastic_qa_dept_a` ist ein Beispiel für den ersten Testlauf. Das Ziel muss
 erreichbar sein und zu einer der unterstützten Plattformen gehören.
 
-Die Verbindung erfolgt per SSH mit dem konfigurierten `serviceuser`
-(`dummysvc` als Default) und Ansible-Privilegienerweiterung. Das Konto
+Die Verbindung erfolgt per SSH mit dem konfigurierten `serviceuser` und
+Ansible-Privilegienerweiterung. Das Konto
 benötigt nicht-interaktive `sudo`-Berechtigungen. Elasticsearch und Kibana
 laufen unter ihren jeweiligen, vom Paket verwalteten Dienstkonten.
 
@@ -218,11 +235,13 @@ gültig sein, unter der Benutzer die Weboberfläche aufrufen. Die CA muss
 beide Dienstzertifikate ausstellen oder ihnen vertrauen. Private Schlüssel
 werden mit eingeschränkten Berechtigungen auf die Zielhosts kopiert.
 
-`config/ansible/group_vars/elastic/vault.yml.example` ist nach
-`config/ansible/group_vars/elastic/vault.yml` zu kopieren. Dort werden
+`config/ansible/group_vars/elastic/vault.yml.example` wird wie oben
+beschrieben lokal kopiert. Dort werden
 starke, unterschiedliche Werte für `elasticsearch_bootstrap_password` und
 `kibana_system_password` eingetragen und die Datei anschließend mit
-`ansible-vault` verschlüsselt. Die verschlüsselte Datei sowie eine
+`ansible-vault` verschlüsselt und als `vault.yml` verlinkt. Auf dem
+Produktions-Controller wird entsprechend eine lokale `vault-prod.yml`
+verwendet. Die verschlüsselte Datei, der Symlink sowie eine
 Vault-Passwortdatei sind von Git ausgeschlossen. Zugangsdaten liegen nicht
 im Inventory oder in Rollen-Defaults. Die Kibana-Konfiguration auf dem
 Zielhost enthält das Kibana-Zugangspasswort und ist deshalb auf den
