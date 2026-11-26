@@ -1,5 +1,3 @@
-ansible_user: "{{ serviceuser }}"
-
 elastic_stack_certificate_source_dir: "{{ ansible_master_location }}/certificates/{{ inventory_hostname }}"
 elastic_stack_package_cache: "{{ ansible_workdir }}/elastic-stack-packages"
 elasticsearch_api_host: "{{ inventory_hostname }}"
