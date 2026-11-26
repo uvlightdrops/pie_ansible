@@ -1,0 +1,4 @@
+---
+- import_playbook: elastic-stack.yml
+  vars:
+    elastic_stack_deploy_kibana: false

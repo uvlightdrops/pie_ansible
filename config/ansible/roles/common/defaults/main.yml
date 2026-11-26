@@ -1,5 +1,7 @@
 ---
 # Shared defaults for Ansible-managed services.
+elastic_stack_deploy_elasticsearch: true
+elastic_stack_deploy_kibana: true
 serviceuser: dummysvc
 servicegroup: dummygroup
 

@@ -2,8 +2,8 @@
 project: pie_ansible
 scope: guides
 created: "2026-11-24 14"
-updated: "2026-11-24 14"
-update_reason: "Lokale Ubuntu-Testmaschine mit Vagrant und libvirt beschrieben."
+updated: "2026-11-26 15"
+update_reason: "Getrenntes Elasticsearch-Playbook und lokale Testzugangsdaten beschrieben."
 status: draft
 agent_project: pie_ansible
 ---
@@ -33,13 +33,14 @@ Bei ausreichend freiem Host-RAM kann vor dem ersten Start zum Beispiel
 Nach Änderungen an der RAM-Vorgabe muss die VM mit derselben Vorgabe
 neu geladen werden: `ELASTIC_VM_MEMORY=4096 vagrant reload`.
 
-Das separate Inventar verwendet ausschließlich `elastic-vm`, den
+Das separate Inventar ordnet ausschließlich `elastic-vm` den Gruppen
+`alf` und `elastic` zu und verwendet den
 Vagrant-SSH-Zugang und `../Ansible_Sources` relativ zum Projektverzeichnis.
 Die SSH-Konfiguration nach einem Neustart oder Neuaufbau der VM erneut
 erzeugen. Die VM kann mit `vagrant halt` angehalten werden.
 
-Für das Elastic-Stack-Playbook müssen vorab alle vier Pakete in den
-vorgesehenen Unterverzeichnissen, verschlüsselte Testzugangsdaten und
+Für das Elasticsearch-Playbook müssen vorab die beiden Elasticsearch-Pakete
+für Ubuntu und SLES, verschlüsselte Testzugangsdaten und Elasticsearch-
 Testzertifikate bereitliegen. Das Zertifikatsverzeichnis heißt
 `../Ansible_Sources/certificates/elastic-vm/`; das Elasticsearch-Zertifikat
 muss die IPv4-Adresse der VM als Subject Alternative Name enthalten, da
@@ -48,11 +49,23 @@ Ansible für die API-Verbindung diese Adresse verwendet. Sie lässt sich mit
 Paketen und Vault stehen in
 [Elasticsearch-Ansible-Deployment](../architecture/ELASTICSEARCH_ANSIBLE_DEPLOYMENT.md).
 
-Nach Bereitstellung dieser Voraussetzungen wird das Playbook ausdrücklich
-mit dem lokalen Inventar gestartet:
+Nach Bereitstellung dieser Voraussetzungen wird ausschließlich Elasticsearch
+mit dem lokalen Inventar installiert:
 
 ```sh
 ANSIBLE_CONFIG=config/ansible/ansible.cfg \
   ansible-playbook -i config/ansible/inventory-vagrant.yml \
-  config/ansible/playbooks/elastic-stack.yml --ask-vault-pass
+  config/ansible/playbooks/elasticsearch.yml --ask-vault-pass
 ```
+
+`kibana.yml` installiert Kibana separat auf einem Ziel mit erreichbarem
+Elasticsearch; `elastic-stack.yml` installiert beide Dienste nacheinander.
+
+Für einen isolierten lokalen Test kann stattdessen ein Inventory unter
+`config/ansible/.local/` verwendet werden, damit der vorhandene Elastic-Vault
+nicht automatisch geladen wird. Die lokalen Testpasswörter können in einer
+separaten Datei `config/ansible/.local/vm-test-vars.yml` liegen und mit
+`-e @config/ansible/.local/vm-test-vars.yml` übergeben werden. Beide Dateien
+sind Git-ignoriert; die Passwortdatei muss auf den Benutzer beschränkt sein
+(`chmod 600`). Unverschlüsselte Zugangsdaten sind ausschließlich für die
+isolierte Test-VM vorgesehen, nicht für Produktionssysteme.

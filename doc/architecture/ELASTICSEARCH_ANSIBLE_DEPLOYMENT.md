@@ -4,7 +4,7 @@ agent_project: pie_ansible
 scope: architecture
 created: null
 updated: "2026-11-26 15"
-update_reason: "Lokales Inventory und Serviceuser-Konfiguration per Symlink dokumentiert."
+update_reason: "Getrennte Playbooks und lokale Inventory-Auswahl dokumentiert."
 status: draft
 ---
 
@@ -27,8 +27,8 @@ auf den entsprechenden eMain-Hosts derselben Umgebung und desselben
 Fachbereichs. Eine Gruppe kann zunächst aus einem einzelnen Elasticsearch-
 Host bestehen und später zu einem Cluster erweitert werden.
 
-Elasticsearch und Kibana werden zunächst gemeinsam auf den Hosts der
-jeweiligen `elastic`-Gruppe installiert. Das Playbook unterstützt Ubuntu
+Elasticsearch und Kibana können gemeinsam oder getrennt auf den Hosts der
+jeweiligen `elastic`-Gruppe installiert werden. Die Playbooks unterstützen Ubuntu
 24 LTS und SUSE Linux Enterprise Server 15 (SLES 15); es wählt das
 Paketformat anhand der Betriebssystem-Facts.
 
@@ -54,6 +54,8 @@ config/ansible/
       vault.yml.example
   playbooks/
     elastic-stack.yml
+    elasticsearch.yml
+    kibana.yml
   roles/
     common/
       defaults/main.yml
@@ -75,12 +77,13 @@ config/ansible/
 Die Rolle `common` enthält die gemeinsamen Defaults, die zuvor in
 `config/ansible/main.yml` lagen. Sie prüft Paket- und Zertifikatsdateien,
 bevor die Anwendungsrollen Änderungen an Zielhosts vornehmen. Die
-Elasticsearch-Rolle installiert und konfiguriert Elasticsearch; danach
-richtet die Kibana-Rolle die Weboberfläche und ihre Verbindung zum lokalen
-Elasticsearch-Knoten ein. Das Playbook zielt auf die Inventory-Gruppe `alf`
+Elasticsearch-Rolle installiert und konfiguriert Elasticsearch. Das separate
+`elasticsearch.yml` führt nur diese Rolle aus; `kibana.yml` richtet Kibana
+auf einem Ziel mit erreichbarem Elasticsearch ein. `elastic-stack.yml`
+führt beide Rollen nacheinander aus. Alle drei Playbooks zielen auf `alf`
 und verwendet Privilegienerweiterung. Die Gruppe `alf` muss im verwendeten
-Inventory eingerichtet werden; im Simulations- und Vagrant-Inventar ist
-sie derzeit nicht enthalten. Die ausgewählten Hosts müssen außerdem zur
+Inventory eingerichtet werden; im Simulationsinventar ist sie noch nicht
+enthalten. Die ausgewählten Hosts müssen außerdem zur
 Gruppe `elastic` gehören, damit sie deren Gruppenvariablen erhalten.
 
 ## Pakete und Ausführung je Plattform [pakete-und-plattformen]
@@ -104,9 +107,11 @@ kibana-8.19.0-amd64.deb
 kibana-8.19.0-x86_64.rpm
 ```
 
-Vor der Installation prüft Ansible, dass alle vier Pakete vorhanden und
-korrekt benannt sind, ihre Dateinamen-Versionen übereinstimmen und
-Elasticsearch sowie Kibana versionsgleich sind. Zusätzlich wird die
+Vor der Installation prüft Ansible für jeden ausgewählten Dienst, dass
+beide Pakete vorhanden und korrekt benannt sind und ihre Versionen
+übereinstimmen. Beim gemeinsamen Deployment müssen alle vier Versionen
+gleich sein. Das Kibana-Deployment prüft zusätzlich die Version des
+erreichbaren Elasticsearch-Knotens. Zusätzlich wird die
 Paketmetadaten-Version des jeweils gewählten Pakets geprüft. Für Ubuntu
 24 LTS wird das DEB mit `apt`, für SLES 15 das RPM mit `zypper` installiert.
 Die Betriebssystem-Facts wählen den passenden Pfad, sodass beide Plattformen
@@ -128,6 +133,9 @@ cp config/ansible/ans-inv-sim2.yml config/ansible/.local/inventory-dev.yml
 chmod 600 config/ansible/.local/inventory-dev.yml
 ln -s .local/inventory-dev.yml config/ansible/inventory.yml
 ```
+
+In der lokalen Kopie `alf` als Gruppe mit `elastic` als Untergruppe
+eintragen, damit das Playbook die Elastic-Hosts auswählt.
 
 Auf dem Produktions-Controller das dortige Inventory als
 `.local/inventory-prod.yml` bereitstellen und `inventory.yml` darauf
@@ -169,6 +177,14 @@ ANSIBLE_CONFIG=config/ansible/ansible.cfg \
   ansible-playbook config/ansible/playbooks/elastic-stack.yml \
   --limit elastic_qa_dept_a --ask-vault-pass
 ```
+
+Für Elasticsearch allein statt `elastic-stack.yml` das Playbook
+`elasticsearch.yml` verwenden; es benötigt nur
+`elasticsearch_bootstrap_password` und keine Kibana-Pakete oder
+Kibana-Zertifikate. Für `kibana.yml` muss Elasticsearch bereits erreichbar
+sein; zusätzlich zum Elasticsearch-Passwort wird
+`kibana_system_password` benötigt. Das Kibana-Playbook setzt dieses
+Passwort für das Elasticsearch-Konto `kibana_system`.
 
 `elastic_qa_dept_a` ist ein Beispiel für den ersten Testlauf. Das Ziel muss
 erreichbar sein und zu einer der unterstützten Plattformen gehören.

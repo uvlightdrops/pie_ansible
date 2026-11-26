@@ -242,26 +242,6 @@
   no_log: true
   changed_when: true
 
-- name: Set Kibana system account password
-  ansible.builtin.uri:
-    url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/kibana_system/_password"
-    method: PUT
-    user: elastic
-    password: "{{ elasticsearch_bootstrap_password }}"
-    force_basic_auth: true
-    validate_certs: true
-    ca_path: "{{ elasticsearch_ca_certificate }}"
-    body_format: json
-    body:
-      password: "{{ kibana_system_password }}"
-    status_code: 200
-  no_log: true
-  register: kibana_password_result
-  until: kibana_password_result.status | default(-1) == 200
-  retries: 20
-  delay: 3
-  changed_when: false
-
 - name: Remove bootstrap password from Elasticsearch keystore
   ansible.builtin.command:
     argv:

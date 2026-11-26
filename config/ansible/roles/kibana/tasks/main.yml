@@ -1,4 +1,12 @@
 ---
+- name: Create package cache on target
+  ansible.builtin.file:
+    path: "{{ elastic_stack_package_cache }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
 - name: Select Kibana artifact for this platform
   ansible.builtin.set_fact:
     kibana_package_source: >-
@@ -114,6 +122,48 @@
     group: kibana
     mode: "0640"
   notify: Restart kibana
+
+- name: Read Elasticsearch version before configuring Kibana
+  ansible.builtin.uri:
+    url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/"
+    method: GET
+    user: elastic
+    password: "{{ elasticsearch_bootstrap_password }}"
+    force_basic_auth: true
+    validate_certs: true
+    ca_path: "{{ kibana_ca_certificate }}"
+    status_code: 200
+  no_log: true
+  register: kibana_elasticsearch_info
+  until: kibana_elasticsearch_info.status | default(-1) == 200
+  retries: 20
+  delay: 3
+
+- name: Require matching Elasticsearch and Kibana versions
+  ansible.builtin.assert:
+    that:
+      - kibana_elasticsearch_info.json.version.number == kibana_package_version
+    fail_msg: Elasticsearch and Kibana must have the same version.
+
+- name: Set Kibana system account password
+  ansible.builtin.uri:
+    url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/kibana_system/_password"
+    method: PUT
+    user: elastic
+    password: "{{ elasticsearch_bootstrap_password }}"
+    force_basic_auth: true
+    validate_certs: true
+    ca_path: "{{ kibana_ca_certificate }}"
+    body_format: json
+    body:
+      password: "{{ kibana_system_password }}"
+    status_code: 200
+  no_log: true
+  register: kibana_password_result
+  until: kibana_password_result.status | default(-1) == 200
+  retries: 20
+  delay: 3
+  changed_when: false
 
 - name: Install Kibana server certificate
   ansible.builtin.copy:

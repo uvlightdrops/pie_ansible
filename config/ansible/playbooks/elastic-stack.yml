@@ -1,10 +1,8 @@
 ---
 - name: Deploy Elasticsearch and Kibana
   hosts: alf
-  remote_user: "{{ serviceuser }}"
   become: true
   gather_facts: true
-
   pre_tasks:
     - name: Validate target operating system
       ansible.builtin.assert:
@@ -24,8 +22,8 @@
         that:
           - elasticsearch_bootstrap_password is defined
           - elasticsearch_bootstrap_password | length >= 20
-          - kibana_system_password is defined
-          - kibana_system_password | length >= 20
+          - not elastic_stack_deploy_kibana or kibana_system_password is defined
+          - not elastic_stack_deploy_kibana or kibana_system_password | length >= 20
         fail_msg: >-
           Create and encrypt a local vault from
           config/ansible/group_vars/elastic/vault.yml.example and link it as
@@ -33,5 +31,7 @@
 
   roles:
     - common
-    - elasticsearch
-    - kibana
+    - role: elasticsearch
+      when: elastic_stack_deploy_elasticsearch
+    - role: kibana
+      when: elastic_stack_deploy_kibana
