@@ -3,8 +3,8 @@ project: pie_ansible
 agent_project: pie_ansible
 scope: architecture
 created: null
-updated: "2026-11-26 17"
-update_reason: "Paketprüfung auf das Format des jeweiligen Zielhosts beschränkt."
+updated: "2026-11-26 18"
+update_reason: "Temporäre Elasticsearch-Testzertifikate dokumentiert."
 status: draft
 ---
 
@@ -146,7 +146,7 @@ müssen nach einem neuen Checkout lokal eingerichtet werden.
 überschreibt diese Auswahl, wie beim lokalen Vagrant-Inventar.
 Der Symlink verschlüsselt das Inventory nicht.
 
-Der SSH-Servicebenutzer wird auf dem Ansible-Controller lokal konfiguriert:
+Der Servicebenutzer wird auf dem Ansible-Controller lokal konfiguriert:
 
 ```sh
 mkdir -p config/ansible/group_vars/elastic/.local
@@ -163,7 +163,7 @@ und `.local/` sind von Git ausgeschlossen. Das versteckte Unterverzeichnis
 verhindert, dass Ansible beide umgebungsspezifischen Dateien direkt lädt.
 Die Auswahl gilt für alle Elastic-Ziele dieses Controllers; der Symlink
 verschlüsselt keine Daten. Ohne lokale Einstellung bleibt der gemeinsame
-Default `dummysvc` wirksam.
+Default `dummysvc` wirksam. Diese Variable bestimmt nicht den SSH-Benutzer.
 
 Die Zugangsdaten werden vor dem Lauf vorbereitet und verschlüsselt:
 
@@ -190,8 +190,9 @@ Passwort für das Elasticsearch-Konto `kibana_system`.
 `elastic_qa_dept_a` ist ein Beispiel für den ersten Testlauf. Das Ziel muss
 erreichbar sein und zu einer der unterstützten Plattformen gehören.
 
-Die Verbindung erfolgt per SSH mit dem konfigurierten `serviceuser` und
-Ansible-Privilegienerweiterung. Das Konto
+Die Verbindung erfolgt per SSH mit dem im Inventory konfigurierten
+`ansible_user` und Ansible-Privilegienerweiterung. Ohne `ansible_user` gilt
+die normale Ansible-Verbindungskonfiguration. Das SSH-Konto
 benötigt nicht-interaktive `sudo`-Berechtigungen. Elasticsearch und Kibana
 laufen unter ihren jeweiligen, vom Paket verwalteten Dienstkonten.
 
@@ -274,6 +275,36 @@ Transportverbindung erlauben. Das Kibana-Zertifikat muss für die Adresse
 gültig sein, unter der Benutzer die Weboberfläche aufrufen. Die CA muss
 beide Dienstzertifikate ausstellen oder ihnen vertrauen. Private Schlüssel
 werden mit eingeschränkten Berechtigungen auf die Zielhosts kopiert.
+
+Für einen befristeten Test können auf dem Ansible-Controller eine eigene
+Test-CA und je Elasticsearch-Host ein eigenes Schlüsselpaar erstellt
+werden. OpenSSL und Python 3 müssen installiert sein. Das Verzeichnis muss
+außerhalb des Git-Repositories liegen:
+
+```sh
+python3 scripts/elasticsearch_test_certificates.py \
+  --base-dir /srv/Ansible_Sources/certificates init-ca
+
+python3 scripts/elasticsearch_test_certificates.py \
+  --base-dir /srv/Ansible_Sources/certificates issue \
+  --host elastic-beispiel.example.org \
+  --san DNS:elastic-beispiel.example.org --san IP:192.0.2.10
+```
+
+`init-ca` wird einmal ausgeführt, `issue` für jeden Inventory-Host. Den
+Hostnamen und alle tatsächlich verwendeten DNS-Namen beziehungsweise
+IP-Adressen als SAN angeben; es werden keine Adressen automatisch ermittelt.
+Die CA gilt 30 Tage, die Hostzertifikate sieben Tage. Ein existierendes
+Hostverzeichnis darf verwendet werden, vorhandene Ausgabedateien oder eine
+vorhandene CA werden nicht überschrieben. Das Skript erzeugt nur die
+Elasticsearch-Dateien, keine Kibana-Zertifikate.
+
+Die Test-CA und die unverschlüsselten privaten Schlüssel sind vertraulich.
+Der CA-Schlüssel bleibt auf dem Controller; Clients müssen der Test-CA
+vertrauen. Für regulären Betrieb die Testzertifikate rechtzeitig durch die
+offiziellen PKI-Zertifikate ersetzen und auch das Vertrauen der Clients
+umstellen. Die CA nicht wiederverwenden, wenn ihr Schlüssel kompromittiert
+wurde.
 
 `config/ansible/group_vars/elastic/vault.yml.example` wird wie oben
 beschrieben lokal kopiert. Dort werden
