@@ -2,8 +2,8 @@
 project: pie_ansible
 scope: guides
 created: "2026-11-26 11"
-updated: "2026-11-26 11"
-update_reason: "Entwurf für die Confluence-Seite zu DevOps-Sicherheit erstellt."
+updated: "2026-11-26 15"
+update_reason: "Lokales Inventory in der Symlink-Vorgehensweise ergänzt."
 status: draft
 agent_project: pie_ansible
 ---
@@ -45,16 +45,20 @@ Ansible-Controller, nicht im Git-Repository. Ein ignorierter Symlink
 verweist auf die passende lokale Datei:
 
 ```text
+config/ansible/
+  inventory.yml -> .local/inventory-dev.yml
 config/ansible/group_vars/elastic/
   serviceuser.yml -> .local/serviceuser-dev.yml
   vault.yml       -> .local/vault-dev.yml
 ```
 
 Auf dem Produktions-Controller zeigen die Links entsprechend auf lokal
-angelegte `serviceuser-prod.yml` und `vault-prod.yml`. Die Dateien liegen
-unter `.local/`, damit Ansible nicht mehrere umgebungsspezifische
-YAML-Dateien gleichzeitig als Gruppenvariablen lädt. Die Auswahl gilt für
-alle Elastic-Ziele des jeweiligen Controllers.
+angelegte `inventory-prod.yml`, `serviceuser-prod.yml` und `vault-prod.yml`.
+Die Gruppenvariablen liegen in ihrem `.local/`-Verzeichnis, damit Ansible
+nicht mehrere umgebungsspezifische YAML-Dateien gleichzeitig lädt. Das
+Inventory wird standardmäßig über den Link gewählt; ein explizites `-i`
+überschreibt die Auswahl. Die Gruppenvariablen gelten für alle
+Elastic-Ziele des jeweiligen Controllers.
 
 Symlinks und `.local/` sind durch `.gitignore` ausgeschlossen. Ein Symlink
 verschlüsselt keine Daten: Dateien mit Passwörtern werden zusätzlich mit

@@ -3,8 +3,8 @@ project: pie_ansible
 agent_project: pie_ansible
 scope: architecture
 created: null
-updated: "2026-11-26 11"
-update_reason: "Lokale Serviceuser-Konfiguration per Symlink dokumentiert."
+updated: "2026-11-26 15"
+update_reason: "Lokales Inventory und Serviceuser-Konfiguration per Symlink dokumentiert."
 status: draft
 ---
 
@@ -46,6 +46,7 @@ Konfigurationslogik liegt in Rollen. Die implementierte Struktur ist:
 ```text
 config/ansible/
   ansible.cfg
+  ans-inv-sim2.yml
   group_vars/
     elastic/
       vars.yml
@@ -76,8 +77,11 @@ Die Rolle `common` enthält die gemeinsamen Defaults, die zuvor in
 bevor die Anwendungsrollen Änderungen an Zielhosts vornehmen. Die
 Elasticsearch-Rolle installiert und konfiguriert Elasticsearch; danach
 richtet die Kibana-Rolle die Weboberfläche und ihre Verbindung zum lokalen
-Elasticsearch-Knoten ein. Das Playbook zielt auf die `elastic`-Gruppe und
-verwendet Privilegienerweiterung.
+Elasticsearch-Knoten ein. Das Playbook zielt auf die Inventory-Gruppe `alf`
+und verwendet Privilegienerweiterung. Die Gruppe `alf` muss im verwendeten
+Inventory eingerichtet werden; im Simulations- und Vagrant-Inventar ist
+sie derzeit nicht enthalten. Die ausgewählten Hosts müssen außerdem zur
+Gruppe `elastic` gehören, damit sie deren Gruppenvariablen erhalten.
 
 ## Pakete und Ausführung je Plattform [pakete-und-plattformen]
 
@@ -113,6 +117,25 @@ Abhängigkeiten über konfigurierte Repositories beziehen können.
 Der erste Rollout sollte eine einzelne Testgruppe ansteuern. Nach Prüfung
 von Diensten und Netzwerkzugriff kann die Ausweitung auf weitere Umgebungs-
 und Fachbereichsgruppen erfolgen.
+
+Das Standard-Inventory wird auf jedem Ansible-Controller lokal ausgewählt.
+Für die Entwicklung kann das eingecheckte Simulationsinventar als Vorlage
+verwendet werden:
+
+```sh
+mkdir -p config/ansible/.local
+cp config/ansible/ans-inv-sim2.yml config/ansible/.local/inventory-dev.yml
+chmod 600 config/ansible/.local/inventory-dev.yml
+ln -s .local/inventory-dev.yml config/ansible/inventory.yml
+```
+
+Auf dem Produktions-Controller das dortige Inventory als
+`.local/inventory-prod.yml` bereitstellen und `inventory.yml` darauf
+verlinken. Der Symlink und `.local/` sind von Git ausgeschlossen; sie
+müssen nach einem neuen Checkout lokal eingerichtet werden.
+`ansible.cfg` verwendet den Symlink als Standard. Ein explizites `-i`
+überschreibt diese Auswahl, wie beim lokalen Vagrant-Inventar.
+Der Symlink verschlüsselt das Inventory nicht.
 
 Der SSH-Servicebenutzer wird auf dem Ansible-Controller lokal konfiguriert:
 

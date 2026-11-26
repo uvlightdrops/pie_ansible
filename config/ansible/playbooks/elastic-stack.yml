@@ -1,6 +1,6 @@
 ---
 - name: Deploy Elasticsearch and Kibana
-  hosts: elastic
+  hosts: alf
   remote_user: "{{ serviceuser }}"
   become: true
   gather_facts: true

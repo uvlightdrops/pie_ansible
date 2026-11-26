@@ -1,5 +1,7 @@
 .env
 .env.*
+/config/ansible/inventory.yml
+/config/ansible/.local/
 /config/ansible/group_vars/elastic/vault.yml
 /config/ansible/group_vars/elastic/serviceuser.yml
 /config/ansible/group_vars/elastic/.local/
