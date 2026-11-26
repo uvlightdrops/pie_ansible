@@ -3,8 +3,8 @@ project: pie_ansible
 agent_project: pie_ansible
 scope: architecture
 created: null
-updated: "2026-11-26 15"
-update_reason: "Getrennte Playbooks und lokale Inventory-Auswahl dokumentiert."
+updated: "2026-11-26 17"
+update_reason: "Paketprüfung auf das Format des jeweiligen Zielhosts beschränkt."
 status: draft
 ---
 
@@ -107,10 +107,11 @@ kibana-8.19.0-amd64.deb
 kibana-8.19.0-x86_64.rpm
 ```
 
-Vor der Installation prüft Ansible für jeden ausgewählten Dienst, dass
-beide Pakete vorhanden und korrekt benannt sind und ihre Versionen
-übereinstimmen. Beim gemeinsamen Deployment müssen alle vier Versionen
-gleich sein. Das Kibana-Deployment prüft zusätzlich die Version des
+Vor der Installation prüft Ansible je Zielhost und ausgewähltem Dienst
+ausschließlich das zu dessen Plattform passende Paket: DEB für Ubuntu,
+RPM für SLES. Das jeweilige Verzeichnis muss genau ein passend benanntes
+Paket enthalten. Beim gemeinsamen Deployment müssen die Versionen von
+Elasticsearch und Kibana übereinstimmen. Das Kibana-Deployment prüft zusätzlich die Version des
 erreichbaren Elasticsearch-Knotens. Zusätzlich wird die
 Paketmetadaten-Version des jeweils gewählten Pakets geprüft. Für Ubuntu
 24 LTS wird das DEB mit `apt`, für SLES 15 das RPM mit `zypper` installiert.
@@ -224,7 +225,7 @@ Als erste Elasticsearch-Defaults gelten:
 | Elasticsearch HTTP- und Transportports | `9200` und `9300` |
 | Kibana HTTPS-Port | `5601` |
 | Anfangstopologie | Ein Host je Umgebung und Fachbereich |
-| Paketversion | Aus den gestagten Dateien gelesen; alle vier Pakete müssen übereinstimmen |
+| Paketversion | Aus dem jeweiligen Plattformpaket gelesen; Elasticsearch und Kibana müssen übereinstimmen |
 
 Der Paketbenutzer `elasticsearch` besitzt `/srv/elasticsearch/data`.
 Konfigurations- und Logpfade bleiben bei den Paket- und

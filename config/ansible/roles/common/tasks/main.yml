@@ -1,131 +1,57 @@
 ---
-- name: Find Elasticsearch DEB package
+- name: Find packages for selected services and target platform
   ansible.builtin.find:
-    paths: "{{ elastic_stack_elasticsearch_deb_dir }}"
-    patterns: elasticsearch-*.deb
+    paths: "{{ item.directory }}"
+    patterns: "{{ item.service }}-*.{{ elastic_stack_package_format }}"
     file_type: file
     recurse: false
   delegate_to: localhost
   become: false
-  run_once: true
-  register: elasticsearch_deb_scan
-  when: elastic_stack_deploy_elasticsearch
-
-- name: Find Elasticsearch RPM package
-  ansible.builtin.find:
-    paths: "{{ elastic_stack_elasticsearch_rpm_dir }}"
-    patterns: elasticsearch-*.rpm
-    file_type: file
-    recurse: false
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: elasticsearch_rpm_scan
-  when: elastic_stack_deploy_elasticsearch
-
-- name: Find Kibana DEB package
-  ansible.builtin.find:
-    paths: "{{ elastic_stack_kibana_deb_dir }}"
-    patterns: kibana-*.deb
-    file_type: file
-    recurse: false
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: kibana_deb_scan
-  when: elastic_stack_deploy_kibana
-
-- name: Find Kibana RPM package
-  ansible.builtin.find:
-    paths: "{{ elastic_stack_kibana_rpm_dir }}"
-    patterns: kibana-*.rpm
-    file_type: file
-    recurse: false
-  delegate_to: localhost
-  become: false
-  run_once: true
-  register: kibana_rpm_scan
-  when: elastic_stack_deploy_kibana
+  vars:
+    elastic_stack_package_format: "{{ 'deb' if ansible_distribution == 'Ubuntu' else 'rpm' }}"
+  loop: >-
+    {{ ([{'service': 'elasticsearch', 'directory': elastic_stack_elasticsearch_deb_dir
+          if ansible_distribution == 'Ubuntu' else elastic_stack_elasticsearch_rpm_dir}]
+        if elastic_stack_deploy_elasticsearch else [])
+       + ([{'service': 'kibana', 'directory': elastic_stack_kibana_deb_dir
+            if ansible_distribution == 'Ubuntu' else elastic_stack_kibana_rpm_dir}]
+          if elastic_stack_deploy_kibana else []) }}
+  loop_control:
+    label: "{{ item.service }}: {{ item.directory }}"
+  register: elastic_stack_package_scans
 
 - name: Validate package file names and availability
   ansible.builtin.assert:
     that:
+      - item.files | length == 1
       - >-
-        not elastic_stack_deploy_elasticsearch or elasticsearch_deb_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
+        item.files | selectattr('path', 'search',
+        item.item.service ~ '-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.' ~ elastic_stack_package_format ~ '$')
         | list | length == 1
-      - >-
-        not elastic_stack_deploy_elasticsearch or elasticsearch_deb_scan.files | length == 1
-      - >-
-        not elastic_stack_deploy_elasticsearch or elasticsearch_rpm_scan.files
-        | selectattr('path', 'search', 'elasticsearch-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | list | length == 1
-      - >-
-        not elastic_stack_deploy_elasticsearch or elasticsearch_rpm_scan.files | length == 1
-      - >-
-        not elastic_stack_deploy_kibana or kibana_deb_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.deb$')
-        | list | length == 1
-      - >-
-        not elastic_stack_deploy_kibana or kibana_deb_scan.files | length == 1
-      - >-
-        not elastic_stack_deploy_kibana or kibana_rpm_scan.files
-        | selectattr('path', 'search', 'kibana-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_]+\.rpm$')
-        | list | length == 1
-      - >-
-        not elastic_stack_deploy_kibana or kibana_rpm_scan.files | length == 1
     fail_msg: >-
-      Each package directory for the selected services must contain exactly
-      one correctly named package:
-      {{ elastic_stack_elasticsearch_deb_dir }},
-      {{ elastic_stack_elasticsearch_rpm_dir }},
-      {{ elastic_stack_kibana_deb_dir }} and
-      {{ elastic_stack_kibana_rpm_dir }}. Package names must include version
-      and architecture (for example elasticsearch-8.19.0-amd64.deb).
-  run_once: true
+      {{ item.item.directory }} must contain exactly one {{ item.item.service }}
+      {{ elastic_stack_package_format }} package named with version and
+      architecture (for example elasticsearch-7.10.2-amd64.deb).
+  vars:
+    elastic_stack_package_format: "{{ 'deb' if ansible_distribution == 'Ubuntu' else 'rpm' }}"
+  loop: "{{ elastic_stack_package_scans.results }}"
+  loop_control:
+    label: "{{ item.item.service }}: {{ item.item.directory }}"
 
-- name: Record Elasticsearch package files and versions on the controller
+- name: Record selected package files and versions for this host
   ansible.builtin.set_fact:
-    elastic_stack_artifacts:
-      elasticsearch_deb: "{{ elasticsearch_deb_scan.files[0].path }}"
-      elasticsearch_rpm: "{{ elasticsearch_rpm_scan.files[0].path }}"
-    elastic_stack_package_versions:
-      elasticsearch_deb: >-
-        {{ (elasticsearch_deb_scan.files[0].path | basename).split('-')[1] }}
-      elasticsearch_rpm: >-
-        {{ (elasticsearch_rpm_scan.files[0].path | basename).split('-')[1] }}
-  delegate_to: localhost
-  delegate_facts: true
-  run_once: true
-  when: elastic_stack_deploy_elasticsearch
-
-- name: Record Kibana package files and versions on the controller
-  ansible.builtin.set_fact:
-    elastic_stack_artifacts: >-
-      {{ hostvars['localhost'].elastic_stack_artifacts | default({}) | combine({
-        'kibana_deb': kibana_deb_scan.files[0].path,
-        'kibana_rpm': kibana_rpm_scan.files[0].path
-      }) }}
-    elastic_stack_package_versions: >-
-      {{ hostvars['localhost'].elastic_stack_package_versions | default({}) | combine({
-        'kibana_deb': (kibana_deb_scan.files[0].path | basename).split('-')[1],
-        'kibana_rpm': (kibana_rpm_scan.files[0].path | basename).split('-')[1]
-      }) }}
-  delegate_to: localhost
-  delegate_facts: true
-  run_once: true
-  when: elastic_stack_deploy_kibana
+    elastic_stack_artifacts: "{{ elastic_stack_artifacts | default({}) | combine({item.item.service: item.files[0].path}) }}"
+    elastic_stack_package_versions: "{{ elastic_stack_package_versions | default({}) | combine({item.item.service: (item.files[0].path | basename).split('-')[1]}) }}"
+  loop: "{{ elastic_stack_package_scans.results }}"
+  loop_control:
+    label: "{{ item.item.service }}"
 
 - name: Require matching Elasticsearch and Kibana package versions
   ansible.builtin.assert:
     that:
-      - not elastic_stack_deploy_elasticsearch or hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb == hostvars['localhost'].elastic_stack_package_versions.elasticsearch_rpm
-      - not elastic_stack_deploy_kibana or hostvars['localhost'].elastic_stack_package_versions.kibana_deb == hostvars['localhost'].elastic_stack_package_versions.kibana_rpm
-      - not (elastic_stack_deploy_elasticsearch and elastic_stack_deploy_kibana) or hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb == hostvars['localhost'].elastic_stack_package_versions.kibana_deb
-    fail_msg: >-
-      Ubuntu and SLES packages for each selected service must match; when
-      deploying both services their package versions must also match.
-  run_once: true
+      - elastic_stack_package_versions.elasticsearch == elastic_stack_package_versions.kibana
+    fail_msg: Elasticsearch and Kibana package versions must match.
+  when: elastic_stack_deploy_elasticsearch and elastic_stack_deploy_kibana
 
 - name: Check that certificate files are present on the controller
   ansible.builtin.stat:

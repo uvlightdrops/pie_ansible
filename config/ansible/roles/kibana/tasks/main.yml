@@ -9,14 +9,8 @@
 
 - name: Select Kibana artifact for this platform
   ansible.builtin.set_fact:
-    kibana_package_source: >-
-      {{ hostvars['localhost'].elastic_stack_artifacts.kibana_deb
-      if ansible_distribution == 'Ubuntu'
-      else hostvars['localhost'].elastic_stack_artifacts.kibana_rpm }}
-    kibana_package_version: >-
-      {{ hostvars['localhost'].elastic_stack_package_versions.kibana_deb
-      if ansible_distribution == 'Ubuntu'
-      else hostvars['localhost'].elastic_stack_package_versions.kibana_rpm }}
+    kibana_package_source: "{{ elastic_stack_artifacts.kibana }}"
+    kibana_package_version: "{{ elastic_stack_package_versions.kibana }}"
 
 - name: Copy Kibana package to target
   ansible.builtin.copy:

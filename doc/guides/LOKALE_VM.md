@@ -2,8 +2,8 @@
 project: pie_ansible
 scope: guides
 created: "2026-11-24 14"
-updated: "2026-11-26 15"
-update_reason: "Getrenntes Elasticsearch-Playbook und lokale Testzugangsdaten beschrieben."
+updated: "2026-11-26 17"
+update_reason: "Plattformabhängige Paketprüfung für den lokalen Test ergänzt."
 status: draft
 agent_project: pie_ansible
 ---
@@ -39,8 +39,8 @@ Vagrant-SSH-Zugang und `../Ansible_Sources` relativ zum Projektverzeichnis.
 Die SSH-Konfiguration nach einem Neustart oder Neuaufbau der VM erneut
 erzeugen. Die VM kann mit `vagrant halt` angehalten werden.
 
-Für das Elasticsearch-Playbook müssen vorab die beiden Elasticsearch-Pakete
-für Ubuntu und SLES, verschlüsselte Testzugangsdaten und Elasticsearch-
+Für das Elasticsearch-Playbook müssen vorab das Elasticsearch-DEB für
+Ubuntu, verschlüsselte Testzugangsdaten und Elasticsearch-
 Testzertifikate bereitliegen. Das Zertifikatsverzeichnis heißt
 `../Ansible_Sources/certificates/elastic-vm/`; das Elasticsearch-Zertifikat
 muss die IPv4-Adresse der VM als Subject Alternative Name enthalten, da

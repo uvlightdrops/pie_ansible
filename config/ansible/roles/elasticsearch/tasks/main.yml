@@ -1,14 +1,8 @@
 ---
 - name: Select Elasticsearch artifact for this platform
   ansible.builtin.set_fact:
-    elasticsearch_package_source: >-
-      {{ hostvars['localhost'].elastic_stack_artifacts.elasticsearch_deb
-      if ansible_distribution == 'Ubuntu'
-      else hostvars['localhost'].elastic_stack_artifacts.elasticsearch_rpm }}
-    elasticsearch_package_version: >-
-      {{ hostvars['localhost'].elastic_stack_package_versions.elasticsearch_deb
-      if ansible_distribution == 'Ubuntu'
-      else hostvars['localhost'].elastic_stack_package_versions.elasticsearch_rpm }}
+    elasticsearch_package_source: "{{ elastic_stack_artifacts.elasticsearch }}"
+    elasticsearch_package_version: "{{ elastic_stack_package_versions.elasticsearch }}"
 
 - name: Create package cache on target
   ansible.builtin.file:
