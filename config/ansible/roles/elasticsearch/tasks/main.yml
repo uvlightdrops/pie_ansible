@@ -215,6 +215,16 @@
   changed_when: false
   register: elasticsearch_keystore_settings
 
+- name: Show Elasticsearch password API request
+  ansible.builtin.debug:
+    msg:
+      url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/elastic/_password"
+      body:
+        password: "{{ elasticsearch_bootstrap_password }}"
+  when:
+    - elasticsearch_debug_password_request | default(false) | bool
+    - "'bootstrap.password' in elasticsearch_keystore_settings.stdout_lines"
+
 - name: Persist the initial elastic account password
   ansible.builtin.uri:
     url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/elastic/_password"
