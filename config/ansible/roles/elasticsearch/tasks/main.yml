@@ -215,12 +215,15 @@
   changed_when: false
   register: elasticsearch_keystore_settings
 
-- name: Show Elasticsearch password API request
+- name: Show Elasticsearch password API curl command
   ansible.builtin.debug:
-    msg:
-      url: "https://{{ elasticsearch_api_host }}:{{ elasticsearch_http_port }}/_security/user/elastic/_password"
-      body:
-        password: "{{ elasticsearch_bootstrap_password }}"
+    msg: >-
+      curl --fail-with-body --show-error --request PUT
+      --cacert {{ elasticsearch_ca_certificate | quote }}
+      --user {{ ('elastic:' ~ elasticsearch_bootstrap_password) | quote }}
+      --header 'Content-Type: application/json'
+      --data-binary {{ {'password': elasticsearch_bootstrap_password} | to_json | quote }}
+      {{ ('https://' ~ elasticsearch_api_host ~ ':' ~ elasticsearch_http_port ~ '/_security/user/elastic/_password') | quote }}
   when:
     - elasticsearch_debug_password_request | default(false) | bool
     - "'bootstrap.password' in elasticsearch_keystore_settings.stdout_lines"
